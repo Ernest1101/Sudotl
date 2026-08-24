@@ -22,6 +22,7 @@ import (
 type GithubRelease struct {
 	Name    string `json:"name"`
 	TagName string `json:"tag_name"`
+	Prerelease bool `json:"prerelease"`
 	Assets  []struct {
 		Name        string `json:"name"`
 		DownloadURL string `json:"browser_download_url"`
@@ -82,7 +83,14 @@ func GetGithubRelease(url, fallbackUrl string) (*GithubRelease, error) {
 		return nil, err
 	}
 
+	// prefer the devbuild prerelease; fall back to the newest stable
 	data := releases[0]
+	for _, rel := range releases {
+		if rel.TagName == "devbuild" || rel.Prerelease {
+			data = rel
+			break
+		}
+	}
 	return &data, nil
 }
 
