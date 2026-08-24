@@ -11,8 +11,8 @@ import (
 	"image/color"
 )
 
-const ReleaseUrl = "https://api.github.com/repos/Ernest1101/Sudocord/releases?per_page=1"
-const ReleaseUrlFallback = "https://api.github.com/repos/Ernest1101/Sudocord/releases?per_page=1"
+const ReleaseUrl = "https://api.github.com/repos/Ernest1101/Sudocord/releases?per_page=10"
+const ReleaseUrlFallback = "https://api.github.com/repos/Ernest1101/Sudocord/releases?per_page=10"
 const InstallerReleaseUrl = "https://api.github.com/repos/Ernest1101/Sudotl/releases/latest"
 const InstallerReleaseUrlFallback = "https://sudocord.h4ck.me/releases/Sudotl"
 
