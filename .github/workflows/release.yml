@@ -157,41 +157,6 @@ jobs:
           mv Sudotl Sudotl.app/Contents/MacOS/Sudotl
           cp macos/icon.icns Sudotl.app/Contents/Resources/icon.icns
 
-      - name: Import signing certificate
-        if: ${{ secrets.APPLE_SIGNING_CERT != '' }}
-        env:
-          CSC_LINK: ${{ secrets.APPLE_SIGNING_CERT }}
-          CSC_KEY_PASSWORD: ${{ secrets.APPLE_SIGNING_CERT_PASSWORD }}
-        run: |
-          echo "$CSC_LINK" | base64 --decode > certificate.p12
-          security create-keychain -p "" build.keychain
-          security default-keychain -s build.keychain
-          security unlock-keychain -p "" build.keychain
-          security import certificate.p12 -k build.keychain -P "$CSC_KEY_PASSWORD" -T /usr/bin/codesign
-          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "" build.keychain
-          rm certificate.p12
-
-      - name: Sign the executables
-        run: |
-          codesign --force --options runtime --sign "Developer ID Application" Sudotl.app/Contents/MacOS/Sudotl
-          codesign --force --options runtime --sign "Developer ID Application" Sudotl.app
-          codesign --force --options runtime --sign "Developer ID Application" ${{ matrix.cli_name }}
-
-      - name: Notarize the executables
-        if: ${{ secrets.APPLE_SIGNING_CERT != '' }}
-        env:
-          API_KEY: ${{ secrets.APPLE_API_KEY }}
-          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
-          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
-        run: |
-          echo "$API_KEY" > apple.p8
-          ditto -c -k --keepParent Sudotl.app Sudotl-notarize.zip
-          ditto -c -k ${{ matrix.cli_name }} SudotlCli-notarize.zip
-          xcrun notarytool submit Sudotl-notarize.zip --key apple.p8 --key-id "$APPLE_API_KEY_ID" --issuer "$APPLE_API_ISSUER" --wait
-          xcrun stapler staple Sudotl.app
-          xcrun notarytool submit SudotlCli-notarize.zip --key apple.p8 --key-id "$APPLE_API_KEY_ID" --issuer "$APPLE_API_ISSUER" --wait
-          rm apple.p8 Sudotl-notarize.zip SudotlCli-notarize.zip
-
       - name: Create final zip
         run: zip -r ${{ matrix.gui_name }} Sudotl.app
 
