@@ -441,7 +441,7 @@ func renderInstaller() g.Widget {
 		g.Style().SetFontSize(20).To(
 			renderErrorCard(
 				DiscordYellow,
-				"**Github** and **sudocord.h4ck.me** are the only official places to get SudoCord. Any other site claiming to be us is malicious.\n"+
+				"**Github** and **sudocord.mooo.com** are the only official places to get SudoCord. Any other site claiming to be us is malicious.\n"+
 					"If you downloaded from any other source, you should delete / uninstall everything immediately, run a malware scan and change your Discord password.",
 				90,
 			),

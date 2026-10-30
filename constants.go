@@ -14,7 +14,7 @@ import (
 const ReleaseUrl = "https://api.github.com/repos/Ernest1101/Sudocord/releases?per_page=10"
 const ReleaseUrlFallback = "https://api.github.com/repos/Ernest1101/Sudocord/releases?per_page=10"
 const InstallerReleaseUrl = "https://api.github.com/repos/Ernest1101/Sudotl/releases/latest"
-const InstallerReleaseUrlFallback = "https://sudocord.h4ck.me/releases/Sudotl"
+const InstallerReleaseUrlFallback = "https://sudocord.mooo.com/releases/Sudotl"
 
 var UserAgent = "Sudotl/" + buildinfo.InstallerGitHash + " (https://github.com/Ernest1101/Sudotl)"
 
