@@ -12,9 +12,12 @@ import (
 )
 
 const ReleaseUrl = "https://api.github.com/repos/Ernest1101/Sudocord/releases?per_page=10"
-const ReleaseUrlFallback = "https://api.github.com/repos/Ernest1101/Sudocord/releases?per_page=10"
+// Mirror on the site (sudocord-mirror.timer on the VDS), used when GitHub is unreachable
+const ReleaseUrlFallback = "https://sudocord.mooo.com/releases/Sudocord"
 const InstallerReleaseUrl = "https://api.github.com/repos/Ernest1101/Sudotl/releases/latest"
 const InstallerReleaseUrlFallback = "https://sudocord.mooo.com/releases/Sudotl"
+const MirrorAsarUrl = "https://sudocord.mooo.com/releases/files/Sudocord/desktop.asar"
+const MirrorInstallerBaseUrl = "https://sudocord.mooo.com/releases/files/Sudotl/"
 
 var UserAgent = "Sudotl/" + buildinfo.InstallerGitHash + " (https://github.com/Ernest1101/Sudotl)"
 

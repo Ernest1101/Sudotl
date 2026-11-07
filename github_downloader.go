@@ -17,6 +17,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type GithubRelease struct {
@@ -37,43 +38,80 @@ var InstalledHash = "None"
 var LatestHash = "Unknown"
 var IsDevInstall bool
 
-func GetGithubRelease(url, fallbackUrl string) (*GithubRelease, error) {
-	Log.Debug("Fetching", url)
+// Release info requests get a timeout so a blocked GitHub fails fast and the mirror is tried
+var apiClient = &http.Client{Timeout: 20 * time.Second}
 
+// openDownload starts a download and returns the response only for a 2xx status
+func openDownload(url string) (*http.Response, error) {
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		Log.Error("Failed to create Request", err)
 		return nil, err
 	}
-
 	req.Header.Set("User-Agent", UserAgent)
 
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
-		Log.Error("Failed to send Request", err)
 		return nil, err
 	}
+	if res.StatusCode >= 300 {
+		res.Body.Close()
+		return nil, errors.New(res.Status)
+	}
+	return res, nil
+}
 
+// fetchReleases accepts both a release list (/releases) and a single release (/releases/latest)
+func fetchReleases(url string) ([]GithubRelease, error) {
+	Log.Debug("Fetching", url)
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("User-Agent", UserAgent)
+
+	res, err := apiClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
 	defer res.Body.Close()
 
 	if res.StatusCode >= 300 {
-		isRateLimitedOrBlocked := res.StatusCode == 401 || res.StatusCode == 403 || res.StatusCode == 429
-		triedFallback := url == fallbackUrl
+		return nil, fmt.Errorf("%s returned %s", url, res.Status)
+	}
 
-		if isRateLimitedOrBlocked && !triedFallback {
-			Log.Error(fmt.Sprintf("Failed to fetch %s (status code %d). Trying fallback url %s", url, res.StatusCode, fallbackUrl))
-			return GetGithubRelease(fallbackUrl, fallbackUrl)
-		}
-
-		err = errors.New(res.Status)
-		Log.Error(url, "returned Non-OK status", GithubError)
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
 		return nil, err
 	}
 
 	var releases []GithubRelease
+	if err = json.Unmarshal(body, &releases); err == nil {
+		return releases, nil
+	}
 
-	if err = json.NewDecoder(res.Body).Decode(&releases); err != nil {
-		Log.Error("Failed to decode GitHub JSON Response", err)
+	var single GithubRelease
+	if err = json.Unmarshal(body, &single); err != nil {
+		return nil, fmt.Errorf("failed to decode release JSON from %s: %w", url, err)
+	}
+	return []GithubRelease{single}, nil
+}
+
+func GetGithubRelease(url, fallbackUrl string) (*GithubRelease, error) {
+	releases, err := fetchReleases(url)
+	if err != nil && fallbackUrl != "" && fallbackUrl != url {
+		// any failure counts: GitHub may be rate limited, blocked by the ISP or unreachable altogether
+		Log.Warn(fmt.Sprintf("Failed to fetch %s (%v). Trying fallback url %s", url, err, fallbackUrl))
+		var fallbackErr error
+		releases, fallbackErr = fetchReleases(fallbackUrl)
+		if fallbackErr != nil {
+			err = fmt.Errorf("%v; fallback: %v", err, fallbackErr)
+		} else {
+			err = nil
+		}
+	}
+	if err != nil {
+		Log.Error("Failed to fetch release info:", err)
 		return nil, err
 	}
 
@@ -181,15 +219,19 @@ func installLatestBuilds() (retErr error) {
 
 	Log.Debug("Downloading desktop.asar")
 
-	res, err := http.Get(downloadUrl)
-	if err == nil && res.StatusCode >= 300 {
-		err = errors.New(res.Status)
+	res, err := openDownload(downloadUrl)
+	if err != nil && downloadUrl != MirrorAsarUrl {
+		// GitHub release files are blocked on some networks, the site mirror has the same build
+		Log.Warn("Failed to download desktop.asar from", downloadUrl+":", err, "- trying mirror", MirrorAsarUrl)
+		res, err = openDownload(MirrorAsarUrl)
 	}
 	if err != nil {
 		Log.Error("Failed to download desktop.asar:", err)
 		retErr = err
 		return
 	}
+	defer res.Body.Close()
+
 	out, err := os.OpenFile(SudoCordDirectory, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
 	if err != nil {
 		Log.Error("Failed to create", SudoCordDirectory+":", err)

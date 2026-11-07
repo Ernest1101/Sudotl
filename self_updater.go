@@ -11,7 +11,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net/http"
 	"os"
 	"path"
 	"runtime"
@@ -45,26 +44,33 @@ func init() {
 	}()
 }
 
-func GetInstallerDownloadLink() string {
-	const BaseUrl = "https://github.com/Ernest1101/Sudotl/releases/latest/download/"
+// installerFileName is the release asset name of this installer build for the current platform
+func installerFileName() string {
 	switch runtime.GOOS {
 	case "windows":
-		filename := Ternary(buildinfo.UiType == buildinfo.UiTypeCli, "SudotlCli.exe", "Sudotl.exe")
-		return BaseUrl + filename
+		return Ternary(buildinfo.UiType == buildinfo.UiTypeCli, "SudotlCli.exe", "Sudotl.exe")
 	case "darwin":
 		switch runtime.GOARCH {
 		case "amd64":
-			return BaseUrl + "Sudotl-darwin-x64.zip"
+			return "Sudotl-darwin-x64.zip"
 		case "arm64":
-			return BaseUrl + "Sudotl-darwin-arm64.zip"
+			return "Sudotl-darwin-arm64.zip"
 		default:
 			return ""
 		}
 	case "linux":
-		return BaseUrl + "SudotlCli-linux"
+		return "SudotlCli-linux"
 	default:
 		return ""
 	}
+}
+
+func GetInstallerDownloadLink() string {
+	const BaseUrl = "https://github.com/Ernest1101/Sudotl/releases/latest/download/"
+	if name := installerFileName(); name != "" {
+		return BaseUrl + name
+	}
+	return ""
 }
 
 func CanUpdateSelf() bool {
@@ -91,9 +97,14 @@ func UpdateSelf() error {
 
 	ownExeDir := path.Dir(ownExePath)
 
-	res, err := http.Get(url)
+	// checks the status too: an error page must never replace the executable
+	res, err := openDownload(url)
 	if err != nil {
-		return err
+		mirrorUrl := MirrorInstallerBaseUrl + installerFileName()
+		Log.Warn("Failed to download update from", url+":", err, "- trying mirror", mirrorUrl)
+		if res, err = openDownload(mirrorUrl); err != nil {
+			return err
+		}
 	}
 	defer res.Body.Close()
 
@@ -106,7 +117,7 @@ func UpdateSelf() error {
 		_ = os.Remove(tmp.Name())
 	}()
 	if err = tmp.Chmod(0o755); err != nil {
-		return fmt.Errorf("Failed to chmod 755", tmp.Name()+":", err)
+		return fmt.Errorf("Failed to chmod 755 %s: %w", tmp.Name(), err)
 	}
 
 	if _, err = io.Copy(tmp, res.Body); err != nil {
